@@ -2,14 +2,14 @@
 
 .scoreboardTitle {
   margin-bottom: varSize(20);
-  font-size: varSize(40);
+  font-size: varSize(37);
 }
 
 .scoreboardItem {
   display: flex;
   justify-content: space-between;
-  width: varSize(250);
+  width: varSize(265);
   margin-bottom: varSize(5);
-  font-size: varSize(20);
   font-family: monospace;
+  font-size: varSize(22);
 }

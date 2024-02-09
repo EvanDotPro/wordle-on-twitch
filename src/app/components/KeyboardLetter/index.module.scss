@@ -1,7 +1,7 @@
 @use "sass:math";
 @import "@/app/styles/mixins";
 
-$size2: varSize(60);
+$size2: varSize(90);
 
 .letter {
   position: relative;
@@ -11,8 +11,8 @@ $size2: varSize(60);
   text-align: center;
   line-height: $size2;
   border: 3px solid rgb(38, 38, 38);
-  border-radius: math.div($size2, 4);
-  font-size: varSize(30);
+  border-radius: 25%;
+  font-size: varSize(45);
   box-sizing: content-box;
   background-color: rgb(37, 37, 37);
 }
@@ -28,8 +28,8 @@ $size2: varSize(60);
 @import "@/app/styles/mixins";
 
 .black {
-  color: black;
-  background-color: rgb(17, 17, 17);
+  color: rgb(80,80,80);
+  background-color: rgb(10, 10, 10);
 }
 
 .score {
