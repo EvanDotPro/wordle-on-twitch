@@ -2,6 +2,40 @@
 
 .blockCont {
   overflow-y: clip;
+  flex-shrink: 0;
+}
+.blockCont:nth-last-child(2) {
+  opacity: 0.8;
+  transform: scale(0.8);
+}
+
+.blockCont:nth-last-child(3) {
+  opacity: 0.6;
+  transform: scale(0.6);
+}
+
+.blockCont:nth-last-child(4) {
+  opacity: 0.4;
+  transform: scale(0.4);
+}
+
+.blockCont:nth-last-child(5) {
+  opacity: 0.2;
+  transform: scale(0.2);
+}
+
+.blockCont:nth-last-child(6),
+.blockCont:nth-last-child(7),
+.blockCont:nth-last-child(8),
+.blockCont:nth-last-child(9),
+.blockCont:nth-last-child(10),
+.blockCont:nth-last-child(11),
+.blockCont:nth-last-child(12),
+.blockCont:nth-last-child(13),
+.blockCont:nth-last-child(14),
+.blockCont:nth-last-child(15),
+{
+  display: none;
 }
 
 .block {
