@@ -42,7 +42,8 @@ export default function Game(props) {
   // Penalty could be either points removed and/or longer timeout
   // Penalty could be increased on subsequent "mistakes"
   const [cooldown, setCooldown] = useState(false);
-  const cooldownDuration = 10000;
+  const cooldownDuration = 3000;
+  const invalidGuessPenalty = 10000;
   const penaltyForNonExistingWords = false;
   const penaltyForUsingRemovedLetter = false;
   // All time scores and temp scores would be cool
@@ -241,7 +242,7 @@ export default function Game(props) {
     let newChatEntry = [word, user, color];
     // console.log(getChatArray);
     setInvalidChatArray((prevInvalidChatArray) => [...prevInvalidChatArray, newChatEntry]);
-    timeoutUser(user, 30000);
+    timeoutUser(user, invalidGuessPenalty);
   }; // we now need to handle invalid guesses too to display them
 
   // Function called when a new word is guessed
@@ -501,6 +502,7 @@ export default function Game(props) {
               getInvalidLetterStatus={getInvalidLetterStatus}
               updateInvalidLetterStatus={updateInvalidLetterStatus}
               updateAnswerStatus={updateAnswerStatus}
+              invalidGuessPenalty={invalidGuessPenalty}
             // playDeniedSound={playDeniedSound}
             />
           ))}
@@ -509,7 +511,7 @@ export default function Game(props) {
 
       <div className={styles.middleContainer}>
         <div className={styles.header}>
-          <h1>Wordle on Twitch</h1>
+          <h1>Wordplop</h1>
           <h2>Let's make it harder, if we can...</h2>
         </div>
         <BigLetters
@@ -538,6 +540,7 @@ export default function Game(props) {
               updateAnswerStatus={updateAnswerStatus}
               playWinSound={playWinSound}
               playWhooshSound={playWhooshSound}
+              timeoutLength={timeoutLength}
             />
           ))}
         </div>
