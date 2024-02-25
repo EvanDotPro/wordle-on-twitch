@@ -14,6 +14,7 @@ import { parseArgs } from "util";
 export default function Game(props) {
   const { client } = props;
   const [getAnswer, setAnswer] = useState("");
+  const getAnswerGiveup= getAnswer;
   const [getChatMessages, setChatMessages] = useState([]);
   const [getGuessArray, setGuessArray] = useState([]);
   const [getChatArray, setChatArray] = useState([]);
@@ -46,6 +47,7 @@ export default function Game(props) {
   // TODO:
 
   // All time scores and temp scores would be cool
+  // add message for guess during timeout/cooldown in debug panel
 
   // Make a visual to show players the state of the global cooldown
   // Get these settings from URL with a default value if not present in the URL:
@@ -74,6 +76,9 @@ export default function Game(props) {
   const [cooldown, setCooldown] = useState(false);
   const cooldownDurationInSeconds = cooldownDuration / 1000;
   const invalidGuessPenaltyInSeconds = invalidGuessPenalty / 1000;
+  
+
+  const giveupAnswer = getAnswer;
 
   whooshSound.volume = 0.5;
   pointSound1.volume = 0.3;
@@ -256,6 +261,7 @@ export default function Game(props) {
     setGuessArray((prevGuessArray) => [...prevGuessArray, word]);
     let newChatEntry = [word, user, color];
     // console.log(getChatArray);
+    console.log(word, user, color);
     setChatArray((prevChatArray) => [...prevChatArray, newChatEntry]);
     timeoutUser(user);
   };
@@ -329,10 +335,25 @@ export default function Game(props) {
     timeoutUser(user, invalidGuessPenalty);
   }; // we now need to handle invalid guesses too to display them
 
+  // console.log('before function:', 'getAnswer:', getAnswer);
+
+  const handleGiveAnswer = () => {
+    console.log('tests:', getAnswer, 'Wordplop', '#B22222');    
+    console.log('inside function:', 'getAnswer:', getAnswer);  
+    addChatMessage(getAnswer, 'Wordplop', '#B22222');
+  };
+
   // Function called when a new word is guessed
   const handleWordEntry = (chat, user, color) => {
+    var giveup = getAnswer;
+    if (!chat && giveup) {
+      handleWordEntry(giveup, 'Wordplop', '#B22222');
+      console.log(giveup, 'Wordplop', '#B22222');
+      return;
+    }
     var word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
     console.log('new guess: ', word);
+    console.log('getAnswer: ', getAnswer);
     if (cooldown === false) {
       if (!isUserTimedOut(user)) {
 
@@ -494,6 +515,8 @@ export default function Game(props) {
           setTimeout(function () {
             reset();
           }, 4500);
+        } else {
+          console.log("Answer is:", getAnswer);
         }
       }
     }
@@ -582,35 +605,36 @@ export default function Game(props) {
     if (client) {
       client.on("message", (channel, tags, message, self) => {
         if (message.startsWith('!')) {
-          if (message.toLowerCase(message) === '!reloadwordle' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message) === '!reloadwordle' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             location.reload();
             return;
           }
-          if (message.toLowerCase(message) === '!giveup' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
-            reset();
+          if (message.toLowerCase(message) === '!giveup' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            handleGiveAnswer();
+            // reset();
             return;
           }
-          if (message.toLowerCase(message) === '!showdebug' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message) === '!showdebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             setShowDebug(true);
             localStorage.setItem('showDebug', 'true');
             return;
           }
-          if (message.toLowerCase(message) === '!hidedebug' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message) === '!hidedebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             setShowDebug(false);
             localStorage.setItem('showDebug', 'false');
             return;
           }
-          if (message.toLowerCase(message) === '!showsettings' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message) === '!showsettings' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             setShowSettings(true);
             localStorage.setItem('showSettings', 'true');
             return;
           }
-          if (message.toLowerCase(message) === '!hidesettings' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message) === '!hidesettings' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             setShowSettings(false);
             localStorage.setItem('showSettings', 'false');
             return;
           }
-          if (message.toLowerCase(message).startsWith('!setsecretsetting') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setsecretsetting') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
             console.log(args[1]);
@@ -620,7 +644,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!setshowscoreboard') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setshowscoreboard') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
             console.log(args[1]);
@@ -630,7 +654,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!setonlyuseavailableletters') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setonlyuseavailableletters') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
             console.log(args[1]);
@@ -640,7 +664,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!setonlyallownottriedpositions') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setonlyallownottriedpositions') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
             console.log(args[1]);
@@ -650,7 +674,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!greenlettershavetobeusedinplace') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!greenlettershavetobeusedinplace') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
             console.log(args[1]);
@@ -660,7 +684,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!allyellowlettershavetobereused') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!allyellowlettershavetobereused') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = args[1];
             console.log(args[1]);
@@ -670,10 +694,10 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message) === '!test' && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message) === '!test' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             playBsSound2();
           }
-          if (message.toLowerCase(message).startsWith('!setinvguesses') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setinvguesses') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
             // console.log(args[1]);
@@ -682,7 +706,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!setcooldownduration') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setcooldownduration') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
             // console.log(args[1]);
@@ -692,7 +716,7 @@ export default function Game(props) {
             }
             return;
           }
-          if (message.toLowerCase(message).startsWith('!setinvalidguesspenalty') && ('#' + tags.username === channel || tags.username === j1c3_ || tags.username === evandotpro)) {
+          if (message.toLowerCase(message).startsWith('!setinvalidguesspenalty') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
             const args = message.split(' ');
             const value = parseInt(args[1]);
             // console.log(args[1]);
@@ -762,7 +786,7 @@ export default function Game(props) {
   }, [cooldownDuration]);
 
   useEffect(() => {
-    console.log('invalidGuessPenalty: ' + invalidGuessPenalty);
+    // console.log('invalidGuessPenalty: ' + invalidGuessPenalty);
   }, [invalidGuessPenalty]);
 
   useEffect(() => {
@@ -780,7 +804,7 @@ export default function Game(props) {
       }
 
       const storedSecretSetting = localStorage.getItem('secretSetting');
-      if (storedShowSettings !== null) {
+      if (storedSecretSetting !== null) {
         updateSecretSetting(JSON.parse(storedSecretSetting));
       }
 
@@ -886,8 +910,8 @@ export default function Game(props) {
             </div>
             <div className={styles.settingsInfos}>
               <ul>
-                <li>Cooldown duration: {cooldownDurationInSeconds} seconds</li>
-                <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} seconds</li>
+                <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
+                <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
                 <li>Only use available letters: {onlyUseAvailableLetters.toString()}</li>
                 <li>Green letters must be reused in place: {greenLettersHaveToBeUsedInPlace.toString()}</li>
                 <li>Yellow letter must be tried in new position: {onlyAllowNotTriedPositions.toString()}</li>
