@@ -62,7 +62,7 @@
 
 .gameSettings {
   text-align: center;
-  opacity: 0.2;
+  opacity: 1.0;
   border: 2px solid grey;
   padding: 10px 110px;
 
@@ -78,7 +78,7 @@
 
 .settingsInfos {
   text-align: left;
-  opacity: 0.2;
+  opacity: 1.0;
   margin-top: 10px;
   // border: 2px solid grey;
   // padding: 20px;
@@ -99,7 +99,7 @@
 
 .debugMessagesTitle{
   text-align: center;
-  opacity: 0.2;
+  opacity: 1.0;
   margin-top: 10px;
   border: 2px solid grey;
   padding: 10px 142px;
@@ -112,7 +112,7 @@
 
 .debugMessages {
   text-align: left;
-  opacity: 0.2;
+  opacity: 1.0;
   margin-top: 10px;
   text-transform: none;
 }

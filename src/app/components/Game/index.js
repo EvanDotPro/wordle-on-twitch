@@ -886,10 +886,6 @@ export default function Game(props) {
       </div>
 
       <div className={styles.middleContainer}>
-        <div className={styles.header}>
-          <h1>Wordplop</h1>
-          <h2>Let's make it harder, if we can...</h2>
-        </div>
         <BigLetters
           answer={getAnswer}
           answerStatus={getAnswerStatus}
