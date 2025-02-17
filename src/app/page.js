@@ -80,13 +80,13 @@ export default function Home() {
       // redirect to current url with all parameters but with view mode enabled
       window.location.href = `${currentUrl.origin}${currentUrl.pathname}?${currentUrl.searchParams.toString()}&view=true`;
     }
+    // If not loaded in an iframe, set the body background to black
+    if (window.self === window.top && isViewMode) {
+      document.body.style.backgroundColor = "black";
+    }
     if (channelParam) {
       if (isViewMode) {
         handleViewMode(channelParam);
-        // If not loaded in an iframe, set the body background to black
-        if (window.self === window.top) {
-          document.body.style.backgroundColor = "black";
-        }
       } else {
         setIsConnecting(true);
         setChannel(channelParam);
