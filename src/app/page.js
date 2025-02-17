@@ -73,7 +73,11 @@ export default function Home() {
   useEffect(() => {
     // Parse URL parameters
     const channelParam = searchParams.get("channel");
-
+    const authKeyParam = searchParams.get("key");
+    // If auth key is not provided, redirect to view mode
+    if (!authKeyParam) {
+      window.location.href = `/?view=true&channel=${channelParam}`;
+    }
     if (channelParam) {
       if (isViewMode) {
         handleViewMode(channelParam);
