@@ -93,6 +93,8 @@ body {
 
 body.no-iframe {
   background: black;
+}
+body.transparency {
   opacity: 0.65;
 }
 

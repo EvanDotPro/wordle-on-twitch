@@ -74,6 +74,7 @@ export default function Home() {
     // Parse URL parameters
     const channelParam = searchParams.get("channel");
     const authKeyParam = searchParams.get("key");
+    const transparencyParam = searchParams.get("transparency");
     // If auth key is not provided, redirect to view mode
     if (!authKeyParam && !isViewMode) {
       const currentUrl = new URL(window.location.href);
@@ -81,8 +82,11 @@ export default function Home() {
       window.location.href = `${currentUrl.origin}${currentUrl.pathname}?${currentUrl.searchParams.toString()}&view=true`;
     }
     // If not loaded in an iframe, set the body background to black
-    if (window.self === window.top) {
+    if (window.self === window.top && !transparencyParam) {
       document.body.classList.add("no-iframe");
+    }
+    if (transparencyParam) {
+      document.body.classList.add("transparency");
     }
     if (channelParam) {
       if (isViewMode) {
