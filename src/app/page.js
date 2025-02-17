@@ -82,7 +82,7 @@ export default function Home() {
     }
     // If not loaded in an iframe, set the body background to black
     if (window.self === window.top && isViewMode) {
-      document.body.style.backgroundColor = "black";
+      document.body.style.backgroundColor = "black !important";
     }
     if (channelParam) {
       if (isViewMode) {
