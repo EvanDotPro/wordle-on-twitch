@@ -75,7 +75,7 @@ export default function Home() {
     const channelParam = searchParams.get("channel");
     const authKeyParam = searchParams.get("key");
     // If auth key is not provided, redirect to view mode
-    if (!authKeyParam) {
+    if (!authKeyParam && !isViewMode) {
       const currentUrl = new URL(window.location.href);
       // redirect to current url with all parameters but with view mode enabled
       window.location.href = `${currentUrl.origin}${currentUrl.pathname}?${currentUrl.searchParams.toString()}&view=true`;
