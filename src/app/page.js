@@ -81,8 +81,8 @@ export default function Home() {
       window.location.href = `${currentUrl.origin}${currentUrl.pathname}?${currentUrl.searchParams.toString()}&view=true`;
     }
     // If not loaded in an iframe, set the body background to black
-    if (window.self === window.top && isViewMode) {
-      document.body.style.backgroundColor = "black !important";
+    if (window.self === window.top) {
+      document.body.classList.add("no-iframe");
     }
     if (channelParam) {
       if (isViewMode) {
