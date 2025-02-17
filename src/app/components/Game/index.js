@@ -57,6 +57,10 @@ export default function Game(props) {
         mqttClient.subscribe(`wordle/${channel}/word-request`);
         
         mqttClient.on('message', (topic, message) => {
+          if (!getAnswer) {
+            console.log("Publisher: No answer set, generating initial word");
+            reset();
+          }
           if (topic === `wordle/${channel}/word-request`) {
             console.log("Publisher: Received word request from viewer");
             console.log("Publisher: Sending current answer:", getAnswer);
@@ -120,7 +124,7 @@ export default function Game(props) {
         mqttClientRef.current.end();
       }
     };
-  }, [isViewMode, channel]);
+  }, [isViewMode, getAnswer, channel]);
 
   // Add a separate effect for publishing that only runs in non-view mode
   useEffect(() => {
