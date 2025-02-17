@@ -93,6 +93,7 @@ body {
 
 body.no-iframe {
   background: black;
+  opacity: 0.65;
 }
 
 a {
