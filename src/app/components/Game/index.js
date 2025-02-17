@@ -54,6 +54,58 @@ export default function Game(props) {
     answerRef.current = getAnswer;
   }, [getAnswer]);
 
+// Add refs for the state variables:
+const guessArrayRef = useRef(getGuessArray);
+const answerStatusRef = useRef(getAnswerStatus);
+const letterStatusRef = useRef(getLetterStatus);
+const isWordFoundRef = useRef(isWordFound);
+const userSessionScoresRef = useRef(getUserSessionScores);
+const userAllTimesScoresRef = useRef(getUserAllTimesScores);
+
+// Update the refs whenever the corresponding state changes:
+useEffect(() => {
+  guessArrayRef.current = getGuessArray;
+}, [getGuessArray]);
+
+useEffect(() => {
+  answerStatusRef.current = getAnswerStatus;
+}, [getAnswerStatus]);
+
+useEffect(() => {
+  letterStatusRef.current = getLetterStatus;
+}, [getLetterStatus]);
+
+useEffect(() => {
+  isWordFoundRef.current = isWordFound;
+}, [isWordFound]);
+
+useEffect(() => {
+  userSessionScoresRef.current = getUserSessionScores;
+}, [getUserSessionScores]);
+
+useEffect(() => {
+  userAllTimesScoresRef.current = getUserAllTimesScores;
+}, [getUserAllTimesScores]);
+
+// Add refs for invalid arrays:
+const invalidGuessArrayRef = useRef(getInvalidGuessArray);
+const invalidChatArrayRef = useRef(getInvalidChatArray);
+
+// Update the refs whenever the corresponding state changes:
+useEffect(() => {
+  invalidGuessArrayRef.current = getInvalidGuessArray;
+}, [getInvalidGuessArray]);
+
+useEffect(() => {
+  invalidChatArrayRef.current = getInvalidChatArray;
+}, [getInvalidChatArray]);
+
+// Add a ref for the chat messages:
+const chatArrayRef = useRef(getChatArray);
+useEffect(() => {
+  chatArrayRef.current = getChatArray;
+}, [getChatArray]);
+
   // MQTT client initialization
   useEffect(() => {
     const fullTopic = `wordle/${channel}`;
@@ -70,12 +122,15 @@ export default function Game(props) {
             console.log("Publisher: Received state request from viewer");
             const gameState = {
               answer: answerRef.current,
-              guesses: getGuessArray,
-              answerStatus: getAnswerStatus,
-              letterStatus: getLetterStatus,
-              isWordFound,
-              sessionScores: getUserSessionScores,
-              allTimesScores: getUserAllTimesScores,
+              guesses: guessArrayRef.current,
+              chatMessages: chatArrayRef.current,  // Added chat messages
+              answerStatus: answerStatusRef.current,
+              letterStatus: letterStatusRef.current,
+              isWordFound: isWordFoundRef.current,
+              sessionScores: userSessionScoresRef.current,
+              allTimesScores: userAllTimesScoresRef.current,
+              invalidGuesses: invalidGuessArrayRef.current,
+              invalidChats: invalidChatArrayRef.current,
             };
             console.log(gameState);
             mqttClient.publish(fullTopic, JSON.stringify(gameState), { retain: true });
@@ -107,11 +162,15 @@ export default function Game(props) {
             console.log("Viewer: Parsed game state:", data);
             setAnswer(data.answer);
             setGuessArray(data.guesses);
+            setChatMessages(data.chatMessages || []); // Restore chat messages
+            setChatArray(data.chatMessages || []); // Restore chat messages
             setAnswerStatus(data.answerStatus);
             setLetterStatus(data.letterStatus);
             setIsWordFound(data.isWordFound);
             setUserSessionScores(data.sessionScores || {});
             setUserAllTimesScores(data.allTimesScores || {});
+            setInvalidGuessArray(data.invalidGuesses || []);
+            setInvalidChatArray(data.invalidChats || []);
           } catch (err) {
             console.error("Viewer: Failed to parse game state:", err);
             console.log(message.toString());
@@ -132,26 +191,32 @@ export default function Game(props) {
     if (!isViewMode && mqttClientRef.current && mqttClientRef.current.connected) {
       const topic = `wordle/${channel}`;
       const gameState = {
-        answer: getAnswer,
-        guesses: getGuessArray, 
-        answerStatus: getAnswerStatus,
-        letterStatus: getLetterStatus,
-        isWordFound,
-        sessionScores: getUserSessionScores,
-        allTimesScores: getUserAllTimesScores
+        answer: answerRef.current,
+        guesses: guessArrayRef.current,
+        chatMessages: chatArrayRef.current,  // Added chat messages
+        answerStatus: answerStatusRef.current,
+        letterStatus: letterStatusRef.current,
+        isWordFound: isWordFoundRef.current,
+        sessionScores: userSessionScoresRef.current,
+        allTimesScores: userAllTimesScoresRef.current,
+        invalidGuesses: invalidGuessArrayRef.current,
+        invalidChats: invalidChatArrayRef.current,
       };
-
+      console.log(gameState);
       mqttClientRef.current.publish(topic, JSON.stringify(gameState), { retain: true });
     }
   }, [
     isViewMode,
     getAnswer,
     getGuessArray,
+    getChatArray, // dependency added if needed
     getAnswerStatus,
     getLetterStatus,
     isWordFound,
     getUserSessionScores,
     getUserAllTimesScores,
+    getInvalidGuessArray,
+    getInvalidChatArray,
     channel
   ]);
 
@@ -502,7 +567,7 @@ export default function Game(props) {
       newWord = answerList[Math.floor(Math.random() * answerList.length)];
     }
 
-    console.log(newWord);
+    //console.log(newWord);
     setAnswer(newWord);
           
     console.log("Publisher: Publishing new word state");
@@ -582,8 +647,8 @@ export default function Game(props) {
   }; // we now need to handle invalid guesses too to display them
 
   const handleGiveAnswer = () => {
-    console.log('tests:', getAnswer, 'Wordplop', '#B22222');
-    console.log('inside function:', 'getAnswer:', getAnswer);
+    //console.log('tests:', getAnswer, 'Wordplop', '#B22222');
+    //console.log('inside function:', 'getAnswer:', getAnswer);
     addChatMessage(getAnswer, 'Wordplop', '#B22222');
   };
 
@@ -602,7 +667,7 @@ export default function Game(props) {
     }
     var word = chat.trim(); //twitch adds white space to allow the broadcaster to repeat the same chat repeatedly it seems
     console.log('new guess: ', word);
-    console.log('getAnswer: ', getAnswer);
+    //console.log('getAnswer: ', getAnswer);
     if (cooldown === false) {
       if (!isUserTimedOut(user)) {
 
