@@ -47,6 +47,13 @@ export default function Game(props) {
   // NEW: add a ref to store the MQTT client instance
   const mqttClientRef = useRef(null);
 
+  // Add a ref for the answer state:
+  const answerRef = useRef(getAnswer);
+
+  useEffect(() => {
+    answerRef.current = getAnswer;
+  }, [getAnswer]);
+
   // MQTT client initialization
   useEffect(() => {
     const fullTopic = `wordle/${channel}`;
@@ -62,7 +69,7 @@ export default function Game(props) {
           if (message.toString() === "state-request") {
             console.log("Publisher: Received state request from viewer");
             const gameState = {
-              answer: getAnswer,
+              answer: answerRef.current,
               guesses: getGuessArray,
               answerStatus: getAnswerStatus,
               letterStatus: getLetterStatus,
@@ -70,13 +77,12 @@ export default function Game(props) {
               sessionScores: getUserSessionScores,
               allTimesScores: getUserAllTimesScores,
             };
+            console.log(gameState);
             mqttClient.publish(fullTopic, JSON.stringify(gameState), { retain: true });
           }
         });
-        // If no answer has been set, generate initial state.
         if (!getAnswer) {
-          console.log("Publisher: No answer set, generating initial word");
-          reset();
+          setAnswerAsRandomWord();
         }
       });
       mqttClientRef.current = mqttClient;
@@ -88,9 +94,14 @@ export default function Game(props) {
         // Subscribe to the full state topic.
         mqttClient.subscribe(fullTopic);
         console.log("Viewer: Publishing state request");
-        mqttClient.publish(fullTopic, "state-request");
+        mqttClient.publish(fullTopic, "state-request", { retain: false });
         mqttClient.on("message", (receivedTopic, message) => {
           console.log("Viewer: Received message on topic:", receivedTopic);
+          if (message.toString() === "state-request") {
+            console.log("Viewer: Ignoring state request");
+            return;
+          }
+
           try {
             const data = JSON.parse(message.toString());
             console.log("Viewer: Parsed game state:", data);
@@ -103,6 +114,7 @@ export default function Game(props) {
             setUserAllTimesScores(data.allTimesScores || {});
           } catch (err) {
             console.error("Viewer: Failed to parse game state:", err);
+            console.log(message.toString());
           }
         });
       });
@@ -113,7 +125,7 @@ export default function Game(props) {
         mqttClientRef.current.end();
       }
     };
-  }, [isViewMode, getAnswer, channel]);
+  }, [isViewMode, channel]);
 
   // Publisher publishes full game state on any game state change.
   useEffect(() => {
@@ -318,7 +330,6 @@ export default function Game(props) {
       });
     }
 
-    setAnswerAsRandomWord();
     initializeAnswerStatus();
     initializeLetterStatus();
     initializeInvalidLetterStatus();
