@@ -33,7 +33,10 @@ export default function Home() {
       setIsConnecting(true);
       let tryConnection;
       let connectionTries = 0;
-
+      // If not loaded in an iframe, set the body background to black
+      if (window.self === window.top) {
+        document.body.style.backgroundColor = "black";
+      }
       const checkConnection = () => {
         if (getClient.channels.length > 0) {
           setIsConnected(true);
