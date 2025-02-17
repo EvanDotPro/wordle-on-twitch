@@ -47,31 +47,33 @@ export default function Game(props) {
   // NEW: add a ref to store the MQTT client instance
   const mqttClientRef = useRef(null);
 
-  // NEW: Initialize MQTT client on mount using the npm version of mqtt
+  // MQTT client initialization
   useEffect(() => {
+    const fullTopic = `wordle/${channel}`;
     if (!isViewMode) {
+      // Publisher client
       const mqttClient = mqtt.connect("wss://evanbox-remote:ebmqtt@evan.pro/mqtt/");
       mqttClient.on("connect", () => {
         console.log("Publisher: Connected to MQTT broker");
-        
-        mqttClient.subscribe(`wordle/${channel}/word-request`);
-        
-        mqttClient.on('message', (topic, message) => {
-          if (!getAnswer) {
-            console.log("Publisher: No answer set, generating initial word");
-            reset();
-          }
-          if (topic === `wordle/${channel}/word-request`) {
-            console.log("Publisher: Received word request from viewer");
-            console.log("Publisher: Sending current answer:", getAnswer);
-            
-            mqttClient.publish(`wordle/${channel}/word-state`, JSON.stringify({
+        // Subscribe to the main topic to receive any state requests.
+        mqttClient.subscribe(fullTopic);
+        mqttClient.on("message", (topic, message) => {
+          // If a viewer requests state by sending "state-request"
+          if (message.toString() === "state-request") {
+            console.log("Publisher: Received state request from viewer");
+            const gameState = {
               answer: getAnswer,
-              timestamp: Date.now()
-            }));
+              guesses: getGuessArray,
+              answerStatus: getAnswerStatus,
+              letterStatus: getLetterStatus,
+              isWordFound,
+              sessionScores: getUserSessionScores,
+              allTimesScores: getUserAllTimesScores,
+            };
+            mqttClient.publish(fullTopic, JSON.stringify(gameState), { retain: true });
           }
         });
-
+        // If no answer has been set, generate initial state.
         if (!getAnswer) {
           console.log("Publisher: No answer set, generating initial word");
           reset();
@@ -83,42 +85,29 @@ export default function Game(props) {
       const mqttClient = mqtt.connect("wss://evanbox-remote:ebmqtt@evan.pro/mqtt/");
       mqttClient.on("connect", () => {
         console.log("Viewer: Connected to MQTT broker");
-        
-        const stateTopic = `wordle/${channel}`;
-        const wordTopic = `wordle/${channel}/word-state`;
-        console.log("Viewer: Subscribing to topics:", stateTopic, wordTopic);
-        
-        mqttClient.subscribe([stateTopic, wordTopic]);
-        
-        console.log("Viewer: Publishing word request");
-        mqttClient.publish(`wordle/${channel}/word-request`, '');
-        
-        mqttClient.on('message', (receivedTopic, message) => {
+        // Subscribe to the full state topic.
+        mqttClient.subscribe(fullTopic);
+        console.log("Viewer: Publishing state request");
+        mqttClient.publish(fullTopic, "state-request");
+        mqttClient.on("message", (receivedTopic, message) => {
           console.log("Viewer: Received message on topic:", receivedTopic);
           try {
             const data = JSON.parse(message.toString());
-            console.log("Viewer: Parsed message data:", data);
-            
-            if (receivedTopic === wordTopic) {
-              console.log("Viewer: Setting answer from word state:", data.answer);
-              setAnswer(data.answer);
-            } else if (receivedTopic === stateTopic) {
-              console.log("Viewer: Updating game state:", data);
-              setGuessArray(data.guesses);
-              setAnswerStatus(data.answerStatus);
-              setLetterStatus(data.letterStatus);
-              setIsWordFound(data.isWordFound);
-              setUserSessionScores(data.sessionScores || {});
-              setUserAllTimesScores(data.allTimesScores || {});
-            }
+            console.log("Viewer: Parsed game state:", data);
+            setAnswer(data.answer);
+            setGuessArray(data.guesses);
+            setAnswerStatus(data.answerStatus);
+            setLetterStatus(data.letterStatus);
+            setIsWordFound(data.isWordFound);
+            setUserSessionScores(data.sessionScores || {});
+            setUserAllTimesScores(data.allTimesScores || {});
           } catch (err) {
-            console.error('Viewer: Failed to parse message:', err);
+            console.error("Viewer: Failed to parse game state:", err);
           }
         });
       });
       mqttClientRef.current = mqttClient;
     }
-
     return () => {
       if (mqttClientRef.current) {
         mqttClientRef.current.end();
@@ -126,7 +115,7 @@ export default function Game(props) {
     };
   }, [isViewMode, getAnswer, channel]);
 
-  // Add a separate effect for publishing that only runs in non-view mode
+  // Publisher publishes full game state on any game state change.
   useEffect(() => {
     if (!isViewMode && mqttClientRef.current && mqttClientRef.current.connected) {
       const topic = `wordle/${channel}`;
@@ -140,7 +129,7 @@ export default function Game(props) {
         allTimesScores: getUserAllTimesScores
       };
 
-      mqttClientRef.current.publish(topic, JSON.stringify(gameState));
+      mqttClientRef.current.publish(topic, JSON.stringify(gameState), { retain: true });
     }
   }, [
     isViewMode,
