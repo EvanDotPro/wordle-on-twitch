@@ -7,6 +7,7 @@ import Game from "./components/Game";
 
 export default function Home() {
   const searchParams = useSearchParams();
+  const isViewMode = searchParams.get("view") === "true";
   const [getClient, setClient] = useState(undefined);
   const [getChannel, setChannel] = useState(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,6 +20,11 @@ export default function Home() {
   };
 
   const changeChannel = (channel) => {
+    setChannel(channel);
+  };
+
+  const handleViewMode = (channel) => {
+    setIsConnected(true);
     setChannel(channel);
   };
 
@@ -66,13 +72,16 @@ export default function Home() {
   }, [getChannel]);
 
   useEffect(() => {
-    // Parse the URL parameters to get the "channel" parameter
-    const searchParams = new URLSearchParams(location.search);
+    // Parse URL parameters
     const channelParam = searchParams.get("channel");
 
     if (channelParam) {
-      setIsConnecting(true);
-      setChannel(channelParam);
+      if (isViewMode) {
+        handleViewMode(channelParam);
+      } else {
+        setIsConnecting(true);
+        setChannel(channelParam);
+      }
     }
     setIsLoading(false);
   }, []);
@@ -86,6 +95,7 @@ export default function Home() {
               <StartingScreen
                 changeChannel={changeChannel}
                 playOffline={playOffline}
+                isViewMode={isViewMode}
               />
             </>
           ) : (
@@ -95,7 +105,11 @@ export default function Home() {
           <span>Connecting...</span>
         )
       ) : (
-        <Game client={getClient} />
+        <Game
+          client={getClient}
+          channel={getChannel}
+          isViewMode={isViewMode}
+        />
       )}
     </main>
   );

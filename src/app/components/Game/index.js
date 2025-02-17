@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import mqtt from "mqtt"; // NEW: import mqtt from npm package
 import styles from "./index.module.scss";
 import Scoreboard from "../Scoreboard";
 import Keyboard from "../Keyboard";
@@ -14,7 +15,7 @@ import { timersSettings, displaySettings, difficultySettings, soundSettings } fr
 import { parseArgs } from "util";
 
 export default function Game(props) {
-  const { client } = props;
+  const { client, channel, isViewMode } = props;
   const settings = {
     ...timersSettings(),
     ...displaySettings(),
@@ -42,6 +43,296 @@ export default function Game(props) {
   const invalidGuessPenaltyInSeconds = settings.invalidGuessPenalty / 1000;
   const cooldownDurationInSeconds = settings.cooldownDuration / 1000;
   const [getInvalidGuessArray, setInvalidGuessArray] = useState([]);
+
+  // NEW: add a ref to store the MQTT client instance
+  const mqttClientRef = useRef(null);
+
+  // NEW: Initialize MQTT client on mount using the npm version of mqtt
+  useEffect(() => {
+    if (!isViewMode) {
+      const mqttClient = mqtt.connect("wss://evanbox-remote:ebmqtt@evan.pro/mqtt/");
+      mqttClient.on("connect", () => {
+        console.log("Publisher: Connected to MQTT broker");
+        
+        mqttClient.subscribe(`wordle/${channel}/word-request`);
+        
+        mqttClient.on('message', (topic, message) => {
+          if (topic === `wordle/${channel}/word-request`) {
+            console.log("Publisher: Received word request from viewer");
+            console.log("Publisher: Sending current answer:", getAnswer);
+            
+            mqttClient.publish(`wordle/${channel}/word-state`, JSON.stringify({
+              answer: getAnswer,
+              timestamp: Date.now()
+            }));
+          }
+        });
+
+        if (!getAnswer) {
+          console.log("Publisher: No answer set, generating initial word");
+          reset();
+        }
+      });
+      mqttClientRef.current = mqttClient;
+    } else {
+      // Viewer client
+      const mqttClient = mqtt.connect("wss://evanbox-remote:ebmqtt@evan.pro/mqtt/");
+      mqttClient.on("connect", () => {
+        console.log("Viewer: Connected to MQTT broker");
+        
+        const stateTopic = `wordle/${channel}`;
+        const wordTopic = `wordle/${channel}/word-state`;
+        console.log("Viewer: Subscribing to topics:", stateTopic, wordTopic);
+        
+        mqttClient.subscribe([stateTopic, wordTopic]);
+        
+        console.log("Viewer: Publishing word request");
+        mqttClient.publish(`wordle/${channel}/word-request`, '');
+        
+        mqttClient.on('message', (receivedTopic, message) => {
+          console.log("Viewer: Received message on topic:", receivedTopic);
+          try {
+            const data = JSON.parse(message.toString());
+            console.log("Viewer: Parsed message data:", data);
+            
+            if (receivedTopic === wordTopic) {
+              console.log("Viewer: Setting answer from word state:", data.answer);
+              setAnswer(data.answer);
+            } else if (receivedTopic === stateTopic) {
+              console.log("Viewer: Updating game state:", data);
+              setGuessArray(data.guesses);
+              setAnswerStatus(data.answerStatus);
+              setLetterStatus(data.letterStatus);
+              setIsWordFound(data.isWordFound);
+              setUserSessionScores(data.sessionScores || {});
+              setUserAllTimesScores(data.allTimesScores || {});
+            }
+          } catch (err) {
+            console.error('Viewer: Failed to parse message:', err);
+          }
+        });
+      });
+      mqttClientRef.current = mqttClient;
+    }
+
+    return () => {
+      if (mqttClientRef.current) {
+        mqttClientRef.current.end();
+      }
+    };
+  }, [isViewMode, channel]);
+
+  // Add a separate effect for publishing that only runs in non-view mode
+  useEffect(() => {
+    if (!isViewMode && mqttClientRef.current && mqttClientRef.current.connected) {
+      const topic = `wordle/${channel}`;
+      const gameState = {
+        answer: getAnswer,
+        guesses: getGuessArray, 
+        answerStatus: getAnswerStatus,
+        letterStatus: getLetterStatus,
+        isWordFound,
+        sessionScores: getUserSessionScores,
+        allTimesScores: getUserAllTimesScores
+      };
+
+      mqttClientRef.current.publish(topic, JSON.stringify(gameState));
+    }
+  }, [
+    isViewMode,
+    getAnswer,
+    getGuessArray,
+    getAnswerStatus,
+    getLetterStatus,
+    isWordFound,
+    getUserSessionScores,
+    getUserAllTimesScores,
+    channel
+  ]);
+
+  // Disable chat message handling in view mode
+  useEffect(() => {
+    if (!isViewMode && client) {
+      client.on("message", (channel, tags, message, self) => {
+        const user = tags["display-name"];
+        const cost = parseInt(localStorage.getItem('getGiveupCost')) || 25;
+        const userGivingupScore = parseInt(localStorage.getItem(`sessionScore_${user}`)) || 0;
+        console.log('Current score for', user, ':', userGivingupScore);
+        if (message.startsWith('!')) {
+          console.log('a command as been issued by', user);
+
+          if (message.toLowerCase(message) === '!giveup') {
+            handleGiveAnswer();
+            let newuserGivingupScore = userGivingupScore - cost;
+            console.log('old score: ', userGivingupScore, 'giveup cost: ', cost, 'new score: ', newuserGivingupScore)
+            updateScores(user, newuserGivingupScore);
+            let word = '';
+            let messageString = ` Used 25 points to skip last word.`;
+            let userColor = tags.color;
+            let rejectionMessage = { user, userColor, word, messageString };
+            setRejectionMessages((prevMessages) => [...prevMessages, rejectionMessage]);
+            return;
+          }
+
+          if (message.toLowerCase(message) === '!reloadwordle' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            location.reload();
+            return;
+          }
+          if (message.toLowerCase(message) === '!showdebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            settings.setShowDebug(true);
+            localStorage.setItem('showDebug', 'true');
+            return;
+          }
+          if (message.toLowerCase(message) === '!hidedebug' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            settings.setShowDebug(false);
+            localStorage.setItem('showDebug', 'false');
+            return;
+          }
+          if (message.toLowerCase(message) === '!showsettings' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            settings.setShowSettings(true);
+            localStorage.setItem('showSettings', 'true');
+            return;
+          }
+          if (message.toLowerCase(message) === '!hidesettings' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            settings.setShowSettings(false);
+            localStorage.setItem('showSettings', 'false');
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setsecretsetting') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateSecretSetting(value === 'true' ? true : false);
+              localStorage.setItem('secretSetting', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setshowscoreboard') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateShowScoreboard(value === 'true' ? true : false);
+              localStorage.setItem('showScoreboard', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setshowgame') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateShowGame(value === 'true' ? true : false);
+              localStorage.setItem('showGame', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setonlyuseavailableletters') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateOnlyUseAvailableLetters(value === 'true' ? true : false);
+              localStorage.setItem('onlyUseAvailableLetters', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setonlyallownottriedpositions') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateOnlyAllowNotTriedPositions(value === 'true' ? true : false);
+              localStorage.setItem('onlyAllowNotTriedPositions', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!greenlettershavetobeusedinplace') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateGreenLettersHaveToBeUsedInPlace(value === 'true' ? true : false);
+              localStorage.setItem('greenLettersHaveToBeUsedInPlace', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!allyellowlettershavetobereused') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = args[1];
+            console.log(args[1]);
+            if (value === 'true' || value === 'false') {
+              settings.updateAllYellowLettersHaveToBeReused(value === 'true' ? true : false);
+              localStorage.setItem('allYellowLettersHaveToBeReused', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message) === '!test' && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            SoundUtils.playBsSound2();
+          }
+          if (message.toLowerCase(message).startsWith('!setinvguesses') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = parseInt(args[1]);
+            if (!isNaN(value)) {
+              settings.updateInvalidGuessesDisplayed(value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!updatescore') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const name = args[1];
+            const value = parseInt(args[2]);
+            if (!isNaN(value)) {
+              updateScores(name, value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!updategiveupcost') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = parseInt(args[1]);
+            if (!isNaN(value)) {
+              settings.updateGiveupCost(value);
+              localStorage.setItem('getGiveupCost', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setcooldownduration') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = parseInt(args[1]);
+            if (!isNaN(value)) {
+              settings.updateCooldownDuration(value);
+              localStorage.setItem('cooldownDuration', value);
+            }
+            return;
+          }
+          if (message.toLowerCase(message).startsWith('!setinvalidguesspenalty') && ('#' + tags.username === channel || tags.username === 'j1c3_' || tags.username === 'evandotpro')) {
+            const args = message.split(' ');
+            const value = parseInt(args[1]);
+            if (!isNaN(value)) {
+              settings.updateInvalidGuessPenalty(value);
+              localStorage.setItem('invalidGuessPenalty', value);
+            }
+            return;
+          }
+          return;
+        }
+        const doesStringContainLettersOnly = /^[a-zA-Z]+$/.test(message);
+        if (!doesStringContainLettersOnly) {
+          return;
+        }
+        addChatMessage(message, tags["display-name"], tags["color"]);
+      });
+    }
+
+    setAnswerAsRandomWord();
+    initializeAnswerStatus();
+    initializeLetterStatus();
+    initializeInvalidLetterStatus();
+    initializeDeniedYellowPositions();
+    initializeRejectionMessages();
+    initializeMandatoryYellowLetters();
+  }, [client, isViewMode]);
 
   // WIP PART
   // TODO:
@@ -196,6 +487,10 @@ export default function Game(props) {
 
   // Set the answer to a new random word from the list
   const setAnswerAsRandomWord = () => {
+    if (isViewMode) {
+      return;
+    }
+
     let newWord = getAnswer;
 
     // Make sure it's actually a new word (don't repeat the same word twice)
@@ -205,6 +500,12 @@ export default function Game(props) {
 
     console.log(newWord);
     setAnswer(newWord);
+          
+    console.log("Publisher: Publishing new word state");
+    mqttClientRef.current.publish(`wordle/${channel}/word-state`, JSON.stringify({
+      answer: newWord,
+      timestamp: Date.now()
+    }));
   };
 
   // Reset the game board (called when the word is solved)
@@ -779,6 +1080,7 @@ export default function Game(props) {
     }
 
     function retrieveScoresFromLocalStorage() {
+      if (isViewMode) return; // Skip for viewers
 
       const sessionKeys = Object.keys(localStorage).filter(key => key.startsWith('sessionScore_'));
       const allTimesKeys = Object.keys(localStorage).filter(key => key.startsWith('allTimesScore_'));
@@ -806,125 +1108,126 @@ export default function Game(props) {
   }, []); // Retrieve stuff from localStorage.
 
   return (
-    settings.getShowGame && (
-      <div className={styles.gameContainer}>
-        
-          <div className={styles.leftContainer}>
-            {settings.getShowScoreboard ? (
-              <div className={styles.leftTopContainer}>
-                <Scoreboard getUserScores={getUserSessionScores} />
-              </div>
-            ) : (
-              <div className={styles.leftTopContainer}></div>
-            )}
+    <>
+      {settings.getShowGame && (
+        <div className={styles.gameContainer}>
+          
+            <div className={styles.leftContainer}>
+              {settings.getShowScoreboard ? (
+                <div className={styles.leftTopContainer}>
+                  <Scoreboard getUserScores={getUserSessionScores} />
+                </div>
+              ) : (
+                <div className={styles.leftTopContainer}></div>
+              )}
 
-            <div className={styles.leftBottomContainer}>
-              {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
-                <RejectionBlock
-                  key={index}
-                  word={chatEntry[0]}
-                  user={chatEntry[1]}
-                  color={chatEntry[2]}
-                  answer={getAnswer}
-                  getInvalidLetterStatus={getInvalidLetterStatus}
-                  updateInvalidLetterStatus={updateInvalidLetterStatus}
-                  updateAnswerStatus={updateAnswerStatus}
-                  invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
-                  getErrorType={getErrorType}
-                  getSecretSetting={settings.getSecretSetting}
-                  playNopeSoundM={SoundUtils.playNopeSoundM}
-                  playNopeSoundF={SoundUtils.playNopeSoundF}
-                  playFailSound={SoundUtils.playFailSound}
-                  playBsSound1={SoundUtils.playBsSound1}
-                  playBsSound2={SoundUtils.playBsSound2}
-                  playBsSound3={SoundUtils.playBsSound3}
-                  playBsSound4={SoundUtils.playBsSound4}
-                />
-              ))}
+              <div className={styles.leftBottomContainer}>
+                {getInvalidChatArray.slice(settings.getInvalidGuessesDisplayed).map((chatEntry, index) => (
+                  <RejectionBlock
+                    key={index}
+                    word={chatEntry[0]}
+                    user={chatEntry[1]}
+                    color={chatEntry[2]}
+                    answer={getAnswer}
+                    getInvalidLetterStatus={getInvalidLetterStatus}
+                    updateInvalidLetterStatus={updateInvalidLetterStatus}
+                    updateAnswerStatus={updateAnswerStatus}
+                    invalidGuessPenaltyInSeconds={invalidGuessPenaltyInSeconds}
+                    getErrorType={getErrorType}
+                    getSecretSetting={settings.getSecretSetting}
+                    playNopeSoundM={SoundUtils.playNopeSoundM}
+                    playNopeSoundF={SoundUtils.playNopeSoundF}
+                    playFailSound={SoundUtils.playFailSound}
+                    playBsSound1={SoundUtils.playBsSound1}
+                    playBsSound2={SoundUtils.playBsSound2}
+                    playBsSound3={SoundUtils.playBsSound3}
+                    playBsSound4={SoundUtils.playBsSound4}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-          <div className={styles.middleContainer}>
-            {/* <div className={styles.header}>
-              <h1>Wordplop</h1>
-              <h2>Let's make it harder, if we can...</h2>
-            </div> */}
-            <BigLetters
-              answer={getAnswer}
-              answerStatus={getAnswerStatus}
-              isWordFound={isWordFound}
-              playCardSound={SoundUtils.playCardSound}
-            />
-            <Keyboard
-              letterStatus={getLetterStatus}
-              playPoint1Sound={SoundUtils.playPoint1Sound}
-              playPoint2Sound={SoundUtils.playPoint2Sound}
-              playPoint3Sound={SoundUtils.playPoint3Sound}
-            />
+            <div className={styles.middleContainer}>
+              {/* <div className={styles.header}>
+                <h1>Wordplop</h1>
+                <h2>Let's make it harder, if we can...</h2>
+              </div> */}
+              <BigLetters
+                answer={getAnswer}
+                answerStatus={getAnswerStatus}
+                isWordFound={isWordFound}
+                playCardSound={SoundUtils.playCardSound}
+              />
+              <Keyboard
+                letterStatus={getLetterStatus}
+                playPoint1Sound={SoundUtils.playPoint1Sound}
+                playPoint2Sound={SoundUtils.playPoint2Sound}
+                playPoint3Sound={SoundUtils.playPoint3Sound}
+              />
 
-            {settings.getShowSettings && (
-              <div>
-                <div className={styles.gameSettings}>
-                  <h2>Game Settings</h2>
+              {settings.getShowSettings && (
+                <div>
+                  <div className={styles.gameSettings}>
+                    <h2>Game Settings</h2>
+                  </div>
+                  <div className={styles.settingsInfos}>
+                    <ul>
+                      <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
+                      <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
+                      <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
+                      <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
+                      <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
+                      <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
+                      <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
+                      <li>Secret setting: {settings.getSecretSetting.toString()}</li>
+                    </ul>
+                  </div>
                 </div>
-                <div className={styles.settingsInfos}>
-                  <ul>
-                    <li>Cooldown duration: {cooldownDurationInSeconds} second(s)</li>
-                    <li>Penalty for invalid guess: {invalidGuessPenaltyInSeconds} second(s)</li>
-                    <li>Only use available letters: {settings.onlyUseAvailableLetters.toString()}</li>
-                    <li>Green letters must be reused in place: {settings.greenLettersHaveToBeUsedInPlace.toString()}</li>
-                    <li>Yellow letter must be tried in new position: {settings.onlyAllowNotTriedPositions.toString()}</li>
-                    <li>Yellow letters are mandatory in new guess: {settings.allYellowLettersHaveToBeReused.toString()}</li>
-                    <li>!giveup command cost: {settings.getGiveupCost} point(s)</li>
-                    <li>Secret setting: {settings.getSecretSetting.toString()}</li>
-                  </ul>
-                </div>
-              </div>
-            )}
+              )}
 
-            {settings.getShowDebug && (
-              <div>
-                <div className={styles.debugMessagesTitle}>
-                  <h2>Debug part</h2>
+              {settings.getShowDebug && (
+                <div>
+                  <div className={styles.debugMessagesTitle}>
+                    <h2>Debug part</h2>
+                  </div>
+                  <div className={styles.debugMessages}>
+                    <ul>
+                      {/* Maybe make the -5 a variable at some point */}
+                      {getRejectionMessages.slice(-5).map((message, index) => (
+                        <li key={index}>
+                          <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-                <div className={styles.debugMessages}>
-                  <ul>
-                    {/* Maybe make the -5 a variable at some point */}
-                    {getRejectionMessages.slice(-5).map((message, index) => (
-                      <li key={index}>
-                        <span style={{ color: "white", opacity: 1, textShadow: `1px 1px 7px ${message.userColor}` }}>@{message.user}</span>: {message.word} {message.messageString}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className={styles.rightContainer}>
-            <div className={styles.wordBlockContainer}>
-              {getChatArray.map((chatEntry, index) => (
-                <WordBlock
-                  key={index}
-                  word={chatEntry[0]}
-                  user={chatEntry[1]}
-                  color={chatEntry[2]}
-                  answer={getAnswer}
-                  updateLetterStatus={updateLetterStatus}
-                  updateAnswerStatus={updateAnswerStatus}
-                  updateMandatoryYellowLetters={updateMandatoryYellowLetters}
-                  playWinSound={SoundUtils.playWinSound}
-                  playWhooshSound={SoundUtils.playWhooshSound}
-                  timeoutLength={timeoutLength}
-                />
-              ))}
+              )}
             </div>
-            {!client && (
-              <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
-            )}
-          </div>
-              
-      </div>
-    )
-
+            <div className={styles.rightContainer}>
+              <div className={styles.wordBlockContainer}>
+                {getChatArray.map((chatEntry, index) => (
+                  <WordBlock
+                    key={index}
+                    word={chatEntry[0]}
+                    user={chatEntry[1]}
+                    color={chatEntry[2]}
+                    answer={getAnswer}
+                    updateLetterStatus={updateLetterStatus}
+                    updateAnswerStatus={updateAnswerStatus}
+                    updateMandatoryYellowLetters={updateMandatoryYellowLetters}
+                    playWinSound={SoundUtils.playWinSound}
+                    playWhooshSound={SoundUtils.playWhooshSound}
+                    timeoutLength={timeoutLength}
+                  />
+                ))}
+              </div>
+              {!isViewMode && !client && (
+                <EntryField addChatMessage={addChatMessage} wordLength={settings.wordLength} />
+              )}
+            </div>
+                
+        </div>
+      )}
+    </>
   );
 }
 // seize: slack, sever, sends < sends should have been rejected, sever tells us 2 "e" but sends is accepted

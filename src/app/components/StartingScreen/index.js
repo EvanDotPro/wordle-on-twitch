@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import styles from "./StartingScreen.module.scss";
 
 function StartingScreen(props) {
-  const { changeChannel, playOffline } = props;
+  const { changeChannel, playOffline, isViewMode } = props;
   const [getChannel, setChannel] = useState("");
 
   const handleInputChange = (event) => {
@@ -26,7 +26,9 @@ function StartingScreen(props) {
   return (
     <>
       <div className={styles.channelInput}>
-        <span className={styles.text}>Insert Twitch Channel: </span>
+        <span className={styles.text}>
+          {isViewMode ? "Enter Channel to View:" : "Insert Twitch Channel:"}
+        </span>
         <input
           type="text"
           id="userInput"
@@ -36,12 +38,14 @@ function StartingScreen(props) {
           onKeyDown={handleKeyPress}
         ></input>
         <button className={styles.button} onClick={handleButtonClick}>
-          Connect
+          {isViewMode ? "View" : "Connect"}
         </button>
       </div>
-      <button className={styles.button} onClick={handleOfflineButtonClick}>
-        Play Without Connecting
-      </button>
+      {!isViewMode && (
+        <button className={styles.button} onClick={handleOfflineButtonClick}>
+          Play Without Connecting
+        </button>
+      )}
     </>
   );
 }
