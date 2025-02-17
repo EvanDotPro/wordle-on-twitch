@@ -11,6 +11,10 @@
   height: 100vh;
 }
 
+.viewMode {
+  background-color: rgba(0,0,0,0) !important;
+}
+
 .link {
   margin-top: varSize(30);
   text-decoration: underline;
