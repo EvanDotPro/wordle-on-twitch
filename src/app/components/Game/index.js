@@ -159,7 +159,7 @@ useEffect(() => {
 
           try {
             const data = JSON.parse(message.toString());
-            console.log("Viewer: Parsed game state:", data);
+            //console.log("Viewer: Parsed game state:", data);
             setAnswer(data.answer);
             setGuessArray(data.guesses);
             setChatMessages(data.chatMessages || []); // Restore chat messages
