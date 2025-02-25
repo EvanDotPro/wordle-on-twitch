@@ -74,6 +74,7 @@ export default function Home() {
     const searchParams = new URLSearchParams(window.location.search);
     const channelParam = searchParams.get("channel");
     const viewParam = searchParams.get("view");
+    const transparencyParam = searchParams.get("transparency");
 
     if (channelParam) {
       setIsConnecting(true);
@@ -85,7 +86,10 @@ export default function Home() {
       console.log("Setting view-only mode and connected state");
       // If not loaded in an iframe, set the body background to black
       if (window.self === window.top) {
-        document.body.classList.add("no-iframe");
+        if (!transparencyParam) {
+          document.body.classList.add("no-iframe");
+        }
+       
       }
     }
     setIsLoading(false);
