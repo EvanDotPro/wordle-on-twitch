@@ -6,7 +6,7 @@ export default function ViewOnlyGame({ channel }) {
   const updateIntervalRef = useRef(null);
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://localhost:8080/ws?channel=${channel}`);
+    const ws = new WebSocket(`wss://evan.pro/ws?channel=${channel}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

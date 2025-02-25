@@ -83,6 +83,10 @@ export default function Home() {
       setIsViewOnly(true);
       setIsConnected(true);  // Add this line
       console.log("Setting view-only mode and connected state");
+      // If not loaded in an iframe, set the body background to black
+      if (window.self === window.top) {
+        document.body.classList.add("no-iframe");
+      }
     }
     setIsLoading(false);
   }, []);

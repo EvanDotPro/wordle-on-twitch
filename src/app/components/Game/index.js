@@ -48,7 +48,7 @@ export default function Game(props) {
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8080/ws');
+    const ws = new WebSocket('wss://evan.pro/ws');
     wsRef.current = ws;
 
     ws.onopen = () => {
