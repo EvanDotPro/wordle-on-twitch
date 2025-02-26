@@ -88,6 +88,8 @@ export default function Home() {
       if (window.self === window.top) {
         if (!transparencyParam) {
           document.body.classList.add("no-iframe");
+        } else {
+          document.body.classList.add("transparency");
         }
        
       }

@@ -98,6 +98,10 @@ body.no-iframe {
   background: black;
 }
 
+body.transparency {
+  opacity: 0.8;
+}
+
 a {
   color: inherit;
   text-decoration: none;
